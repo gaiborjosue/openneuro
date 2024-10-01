@@ -1,6 +1,6 @@
-import { GitWorkerContext } from "./types/git-context.ts"
-import { basename, dirname, git, join, relative } from "../deps.ts"
-import { logger } from "../logger.ts"
+import type { GitWorkerContext } from "./types/git-context.ts"
+import { basename, dirname, join, relative } from "@std/path"
+import { default as git } from "npm:isomorphic-git"
 
 /**
  * Why are we using hash wasm over web crypto?
@@ -141,4 +141,21 @@ export async function annexAdd(
   } else {
     return false
   }
+}
+
+export async function readAnnexPath(
+  logPath: string,
+  context: GitWorkerContext,
+): Promise<string> {
+  const options = {
+    ...context.config(),
+    ref: "git-annex",
+  }
+  const annexBranchOid = await git.resolveRef(options)
+  const { blob } = await git.readBlob({
+    ...options,
+    oid: annexBranchOid,
+    filepath: logPath,
+  })
+  return new TextDecoder().decode(blob)
 }

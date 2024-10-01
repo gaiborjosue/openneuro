@@ -4,6 +4,7 @@ import Star from "../../models/stars"
 import Subscription from "../../models/subscription"
 import Permission from "../../models/permission"
 import { hashObject } from "../../libs/authentication/crypto"
+import util from "util"
 
 const elasticIndex = "datasets"
 
@@ -37,7 +38,7 @@ export const decodeCursor = (cursor) =>
  * @param {import ('@elastic/elasticsearch').ApiResponse} result
  */
 export const elasticRelayConnection = (
-  { body },
+  body,
   id,
   size,
   childResolvers = { dataset },
@@ -102,9 +103,9 @@ export const datasetSearchConnection = async (
     index: elasticIndex,
     size: first,
     q: `${q} AND public:true`,
-    body: requestBody,
+    ...requestBody,
   })
-  return elasticRelayConnection(result, searchId, first)
+  return elasticRelayConnection(requestBody, searchId, first)
 }
 
 export const datasetSearch = {
@@ -215,6 +216,7 @@ export const advancedDatasetSearchConnection = async (
   },
   { user, userInfo },
 ) => {
+  // Create an identity for this search (used to cache connections)
   const searchId = hashObject({
     query,
     datasetType,
@@ -223,26 +225,30 @@ export const advancedDatasetSearchConnection = async (
     user,
   })
   const sort = [{ _score: "desc" }, { id: "desc" }]
-  if (sortBy) sort.unshift(sortBy)
+  if (sortBy) {
+    sort.unshift(sortBy)
+  }
+  // Parse out the decode token and add it to our query if successful
+  let search_after
+  if (after) {
+    try {
+      search_after = decodeCursor(after)
+    } catch (_err) {
+      // Don't include search_after if parsing fails
+    }
+  }
   const requestBody = {
+    index: elasticIndex,
+    size: first,
     sort,
     query: allDatasets
       ? query
       : await parseQuery(query, datasetType, datasetStatus, user),
-    search_after: undefined,
+    search_after,
   }
-  if (after) {
-    try {
-      requestBody.search_after = decodeCursor(after)
-    } catch (err) {
-      // Don't include search_after if parsing fails
-    }
-  }
-  const result = await elasticClient.search({
-    index: elasticIndex,
-    size: first,
-    body: requestBody,
-  })
+  // Run the query
+  const result = await elasticClient.search(requestBody)
+  // Extend with relay connection pagination
   return elasticRelayConnection(
     result,
     searchId,

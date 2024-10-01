@@ -1,18 +1,18 @@
+import asyncio
 import json
+import logging
 import os
-import requests
 import re
 
-import gevent
-from gevent import subprocess
+import requests
 
 from datalad_service.config import GRAPHQL_ENDPOINT
-from datalad_service.common.elasticsearch import ValidationLogger
 
+logger = logging.getLogger('datalad_service.' + __name__)
 
 LEGACY_VALIDATOR_VERSION = json.load(
     open('package.json'))['dependencies']['bids-validator']
-DENO_VALIDATOR_VERSION = 'v1.13.0'
+DENO_VALIDATOR_VERSION = 'v1.14.8'
 
 LEGACY_METADATA = {
     'validator': 'legacy',
@@ -29,57 +29,61 @@ def escape_ansi(text):
     return ansi_escape.sub('', text)
 
 
-def setup_validator():
+async def setup_validator():
     """Install nodejs deps if they do not exist."""
     if not os.path.exists('./node_modules/.bin/bids-validator'):
-        subprocess.run(['yarn'])
+        process = await asyncio.create_subprocess_exec('yarn')
+        await process.wait()
 
 
-def run_and_decode(args, timeout, esLogger):
+async def run_and_decode(args, timeout, logger):
     """Run a subprocess and return the JSON output."""
-    process = gevent.subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    process = await asyncio.create_subprocess_exec(*args, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
     try:
-        process.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
+        await asyncio.wait_for(process.wait(), timeout=timeout)
+    except asyncio.TimeoutError:
+        logger.warning(f'Timed out while running `{" ".join(args)}`')
         process.kill()
 
     # Retrieve what we can from the process
-    stdout, stderr = process.communicate()
+    stdout, stderr = await process.communicate()
 
     # If we have a whole JSON document from stdout, then return it
     # Otherwise, log the error and return None
     try:
         return json.loads(escape_ansi(stdout.decode('utf-8')))
     except json.decoder.JSONDecodeError as err:
-        esLogger.log(stdout, stderr, err)
+        logger.exception(err)
+        logger.info(stdout)
+        logger.error(stderr)
 
 
-def validate_dataset_sync(dataset_path, ref, esLogger):
+async def validate_dataset_call(dataset_path, ref, logger=logger):
     """
     Synchronous dataset validation.
 
     Runs the bids-validator process and installs node dependencies if needed.
     """
-    setup_validator()
-    return run_and_decode(
+    await setup_validator()
+    return await run_and_decode(
         ['./node_modules/.bin/bids-validator', '--json', '--ignoreSubjectConsistency', dataset_path],
         timeout=300,
-        esLogger=esLogger,
+        logger=logger,
     )
 
 
-def validate_dataset_deno_sync(dataset_path, ref, esLogger):
+async def validate_dataset_deno_call(dataset_path, ref, logger=logger):
     """
     Synchronous dataset validation.
 
     Runs the deno bids-validator process.
     """
-    return run_and_decode(
+    return await run_and_decode(
         ['deno', 'run', '-A',
          f'https://deno.land/x/bids_validator@{DENO_VALIDATOR_VERSION}/bids-validator.ts',
          '--json', dataset_path],
         timeout=300,
-        esLogger=esLogger,
+        logger=logger
     )
 
 
@@ -127,13 +131,11 @@ def issues_mutation(dataset_id, ref, issues, validator_metadata):
     }
 
 
-def _validate_dataset_eventlet(dataset_id, dataset_path, ref, cookies=None, user=''):
-    esLogger = ValidationLogger(dataset_id, user)
-    validator_output = validate_dataset_sync(dataset_path, ref, esLogger)
-    all_issues = validator_output['issues']['warnings'] + \
-        validator_output['issues']['errors']
+async def validate_dataset(dataset_id, dataset_path, ref, cookies=None, user=''):
+    validator_output = await validate_dataset_call(dataset_path, ref)
     if validator_output:
         if 'issues' in validator_output:
+            all_issues = validator_output['issues']['warnings'] + validator_output['issues']['errors']
             r = requests.post(
                 url=GRAPHQL_ENDPOINT, json=issues_mutation(dataset_id, ref, all_issues, LEGACY_METADATA), cookies=cookies)
             if r.status_code != 200 or 'errors' in r.json():
@@ -143,12 +145,9 @@ def _validate_dataset_eventlet(dataset_id, dataset_path, ref, cookies=None, user
                 url=GRAPHQL_ENDPOINT, json=summary_mutation(dataset_id, ref, validator_output, LEGACY_METADATA), cookies=cookies)
             if r.status_code != 200 or 'errors' in r.json():
                 raise Exception(r.text)
-    else:
-        raise Exception('Validation failed unexpectedly')
 
     # New schema validator second in case of issues
-    validator_output_deno = validate_dataset_deno_sync(
-        dataset_path, ref, esLogger)
+    validator_output_deno = await validate_dataset_deno_call(dataset_path, ref)
     if validator_output_deno:
         if 'issues' in validator_output_deno:
             r = requests.post(
@@ -162,6 +161,4 @@ def _validate_dataset_eventlet(dataset_id, dataset_path, ref, cookies=None, user
                 raise Exception(r.text)
 
 
-def validate_dataset(dataset_id, dataset_path, ref, cookies=None, user=''):
-    return gevent.spawn(_validate_dataset_eventlet,
-                        dataset_id, dataset_path, ref, cookies, user)
+

@@ -28,8 +28,8 @@ apiReplicas: 4
 # Static service parallelism
 webReplicas: 3
 
-# Sentry DSN (non-secret version)
-sentryDsn: https://ba0c58863b3e40a2a412132bfd2711ea@o114074.ingest.sentry.io/251076
+# Sentry DSN
+sentryDsn: https://b8eb90670f3386206200aa89e0d91076@o4507748938350592.ingest.us.sentry.io/4507750879461376
 
 # Elastic APM path
 apmServerUrl: https://17ae1d2cfa8f47f486b1b6fda3ed9f43.apm.us-west-2.aws.found.io
@@ -52,13 +52,13 @@ workerZone: us-west1-c
 # Assigned volumes for each worker (max 64TB)
 workerDiskSize:
   - id: projects/hs-openneuro/zones/us-west1-c/disks/openneuro-prod-datasets-0
-    size: 39000Gi
+    size: 47000Gi
   - id: projects/hs-openneuro/zones/us-west1-c/disks/openneuro-prod-datasets-1
-    size: 29000Gi
+    size: 38000Gi
   - id: projects/hs-openneuro/zones/us-west1-c/disks/openneuro-prod-datasets-2
-    size: 24000Gi
+    size: 31000Gi
   - id: projects/hs-openneuro/zones/us-west1-c/disks/openneuro-prod-datasets-3
-    size: 30000Gi
+    size: 35000Gi
 
 # Disable Redis password for testing
 redis:

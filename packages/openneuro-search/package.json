@@ -1,6 +1,6 @@
 {
   "name": "@openneuro/search",
-  "version": "4.23.0",
+  "version": "4.28.3",
   "description": "OpenNeuro search client functions.",
   "main": "dist/index.js",
   "browser": "src/index.ts",
@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@apollo/client": "3.7.2",
-    "@elastic/elasticsearch": "7.15.0",
+    "@elastic/elasticsearch": "8.13.1",
     "graphql": "16.8.1",
     "jsonwebtoken": "^9.0.0"
   },
@@ -29,5 +29,5 @@
   "publishConfig": {
     "access": "public"
   },
-  "gitHead": "eb54a256165f859aea99925587757a60477ce0ff"
+  "gitHead": "42faee5b457b9b55ec4f9997540393787a4b81bc"
 }

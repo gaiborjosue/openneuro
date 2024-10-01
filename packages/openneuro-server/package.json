@@ -1,6 +1,6 @@
 {
   "name": "@openneuro/server",
-  "version": "4.23.0",
+  "version": "4.28.3",
   "description": "Core service for the OpenNeuro platform.",
   "license": "MIT",
   "main": "src/server.js",
@@ -18,20 +18,19 @@
     "@apollo/client": "3.7.2",
     "@apollo/server": "4.9.3",
     "@apollo/utils.keyvadapter": "3.0.0",
-    "@elastic/elasticsearch": "7.15.0",
+    "@elastic/elasticsearch": "8.13.1",
     "@graphql-tools/schema": "^10.0.0",
     "@keyv/redis": "^2.7.0",
-    "@openneuro/search": "^4.23.0",
-    "@passport-next/passport-google-oauth2": "^1.0.0",
-    "@sentry/node": "^4.5.3",
+    "@openneuro/search": "^4.28.3",
+    "@sentry/node": "^8.25.0",
+    "@sentry/profiling-node": "^8.25.0",
     "base64url": "^3.0.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "date-fns": "^2.16.1",
     "draft-js": "^0.11.7",
     "draft-js-export-html": "^1.4.1",
-    "elastic-apm-node": "^4.3.0",
-    "express": "4.19.2",
+    "express": "4.20.0",
     "graphql": "16.8.1",
     "graphql-bigint": "^1.0.0",
     "graphql-compose": "9.0.10",
@@ -48,11 +47,11 @@
     "morgan": "^1.6.1",
     "node-mailjet": "^3.3.5",
     "object-hash": "2.1.1",
-    "passport": "^0.6.0",
-    "passport-google-oauth20": "^1.0.0",
-    "passport-jwt": "^4.0.0",
-    "passport-oauth2-refresh": "^2.0.0",
-    "passport-orcid": "^0.0.3",
+    "passport": "0.7.0",
+    "passport-google-oauth20": "2.0.0",
+    "passport-jwt": "4.0.1",
+    "passport-oauth2-refresh": "2.2.0",
+    "passport-orcid": "0.0.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "redlock": "^4.0.0",
@@ -63,7 +62,7 @@
     "ts-node": "9.1.1",
     "typescript": "5.1.6",
     "underscore": "^1.8.3",
-    "uuid": "^3.0.1",
+    "uuid": "10.0.0",
     "xmldoc": "^1.1.0"
   },
   "devDependencies": {
@@ -86,5 +85,5 @@
   "publishConfig": {
     "access": "public"
   },
-  "gitHead": "eb54a256165f859aea99925587757a60477ce0ff"
+  "gitHead": "42faee5b457b9b55ec4f9997540393787a4b81bc"
 }

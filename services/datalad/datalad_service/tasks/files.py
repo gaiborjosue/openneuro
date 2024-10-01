@@ -1,9 +1,9 @@
+import asyncio
 import subprocess
 import pygit2
 
 from datalad_service.common.annex import get_repo_files
 from datalad_service.common.git import git_commit, git_commit_index, COMMITTER_EMAIL, COMMITTER_NAME
-from datalad_service.common.draft import update_head
 from datalad_service.tasks.validator import validate_dataset
 
 
@@ -15,12 +15,11 @@ def commit_files(store, dataset, files, name=None, email=None, cookies=None):
     """
     dataset_path = store.get_dataset_path(dataset)
     repo = pygit2.Repository(dataset_path)
-    author = name and pygit2.Signature(name, email) or pygit2.Signature(
+    author = name and email and pygit2.Signature(name, email) or pygit2.Signature(
         COMMITTER_NAME, COMMITTER_EMAIL)
     ref = git_commit(repo, files, author)
     # Run the validator but don't block on the request
-    validate_dataset(dataset, dataset_path, ref.hex,
-                     cookies)
+    asyncio.create_task(validate_dataset(dataset, dataset_path, str(ref), cookies))
     return ref
 
 
@@ -40,9 +39,8 @@ def remove_files(store, dataset, paths, name=None, email=None, cookies=None):
     repo.index.remove_all(paths)
     repo.index.write()
     repo.checkout_index()
-    hexsha = git_commit_index(repo, author,
-                              message="[OpenNeuro] Files removed").hex
-    update_head(dataset, dataset_path, hexsha, cookies)
+    hexsha = str(git_commit_index(repo, author,
+                              message="[OpenNeuro] Files removed"))
 
 
 def remove_annex_object(dataset_path, annex_key):

@@ -28,6 +28,9 @@ apiReplicas: 2
 # Static service parallelism
 webReplicas: 2
 
+# Sentry DSN
+sentryDsn: https://b8eb90670f3386206200aa89e0d91076@o4507748938350592.ingest.us.sentry.io/4507750879461376
+
 # Elastic APM path
 apmServerUrl: https://openneuro-staging.apm.us-west-2.aws.found.io
 

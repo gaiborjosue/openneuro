@@ -11,6 +11,9 @@ export default defineConfig({
   },
   build: {
     sourcemap: true,
+    rollupOptions: {
+      external: "/crn/config.js",
+    },
   },
   optimizeDeps: {
     include: [
@@ -20,7 +23,7 @@ export default defineConfig({
       "@apollo/client/link/ws",
       "@apollo/client/utilities",
     ],
-    exclude: ["buffer", "stream-browserify"],
+    exclude: ["stream-browserify"],
   },
   resolve: {
     alias: [
@@ -33,6 +36,8 @@ export default defineConfig({
       { find: "stream", replacement: "stream-browserify" },
       // sax -> Buffer shim
       { find: "buffer", replacement: "buffer/" },
+      // bids-validator deno buffer
+      { find: "node:buffer", replacement: "buffer/" },
       // Workaround UMD -> ESM issues in pluralize
       {
         find: "pluralize",

@@ -7,8 +7,6 @@ import { uploads } from "@openneuro/client"
 import validate from "bids-validator"
 import { bytesToSize, getFiles } from "./files"
 import { getUrl } from "./config"
-// @ts-ignore
-import consoleFormat from "bids-validator/dist/commonjs/utils/consoleFormat"
 import { AbortController, fetch, Request } from "fetch-h2"
 
 /**
@@ -23,16 +21,15 @@ const validatePromise = (dir, options = {}) => {
       if (errors.length + warnings.length === 0) {
         resolve({ summary })
       } else {
-        reject(consoleFormat.issues({ errors, warnings }))
+        reject(validate.consoleFormat.issues({ errors, warnings }))
       }
     })
   })
 }
 
-const fatalError = (err, apmSpan) => {
+const fatalError = (err) => {
   // eslint-disable-next-line no-console
   console.error(err)
-  apmSpan.end()
   process.exit(1)
 }
 
@@ -40,18 +37,14 @@ const fatalError = (err, apmSpan) => {
  * Runs validation, logs summary or exits if an error is encountered
  * @param {string} dir Directory to validate
  * @param {object} validatorOptions Options passed to the validator
- * @param {object} apmTransaction Elastic APM Transaction object
  */
-export const validation = (dir, validatorOptions, apmTransaction) => {
-  const apmValidatePromiseSpan = apmTransaction &&
-    apmTransaction.startSpan("validatePromise")
+export const validation = (dir, validatorOptions) => {
   return validatePromise(dir, validatorOptions)
     .then(function ({ summary }) {
       // eslint-disable-next-line no-console
-      console.log(consoleFormat.summary(summary))
-      apmValidatePromiseSpan.end()
+      console.log(validate.consoleFormat.summary(summary))
     })
-    .catch((err) => fatalError(err, apmValidatePromiseSpan))
+    .catch((err) => fatalError(err))
 }
 
 /**

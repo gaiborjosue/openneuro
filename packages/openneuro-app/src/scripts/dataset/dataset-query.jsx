@@ -1,5 +1,5 @@
-import { apm } from "../apm"
 import React from "react"
+import * as Sentry from "@sentry/react"
 import PropTypes from "prop-types"
 import { useNavigate, useParams } from "react-router-dom"
 import { gql, useApolloClient, useQuery } from "@apollo/client"
@@ -8,14 +8,6 @@ import { Loading } from "@openneuro/components/loading"
 import DatasetQueryContext from "../datalad/dataset/dataset-query-context.js"
 import DatasetContext from "../datalad/dataset/dataset-context.js"
 import DatasetRoutes from "./dataset-routes"
-import FilesSubscription from "../datalad/subscriptions/files-subscription.jsx"
-import usePermissionsSubscription from "../datalad/subscriptions/usePermissionsSubscription"
-import useSnapshotsUpdatedSubscriptions from "../datalad/subscriptions/useSnapshotsUpdatedSubscriptions"
-import useDatasetDeletedSubscription, {
-  datasetDeletedToast,
-} from "../datalad/subscriptions/useDatasetDeletedSubscription.jsx"
-import useDraftSubscription from "../datalad/subscriptions/useDraftSubscription.js"
-
 import ErrorBoundary, {
   ErrorBoundaryAssertionFailureException,
 } from "../errors/errorBoundary.jsx"
@@ -41,15 +33,6 @@ export const DatasetQueryHook = ({ datasetId, draft }) => {
       nextFetchPolicy: "cache-first",
     },
   )
-  usePermissionsSubscription([datasetId])
-  useSnapshotsUpdatedSubscriptions(datasetId)
-  useDatasetDeletedSubscription([datasetId], ({ data: subData }) => {
-    if (subData && subData.datasetDeleted === datasetId) {
-      navigate("/dashboard/datasets")
-      datasetDeletedToast(datasetId, data?.dataset?.draft?.description?.Name)
-    }
-  })
-  useDraftSubscription(datasetId)
 
   if (error) {
     if (error.message === "You do not have access to read this dataset.") {
@@ -65,11 +48,7 @@ export const DatasetQueryHook = ({ datasetId, draft }) => {
       }
       return <FourOFourPage message={error.message} />
     } else {
-      try {
-        apm.captureError(error)
-      } catch (err) {
-        // Ignore failure to write to APM
-      }
+      Sentry.captureException(error)
       return <FourOFourPage />
     }
   } else {
@@ -94,7 +73,6 @@ export const DatasetQueryHook = ({ datasetId, draft }) => {
           }}
         >
           <DatasetRoutes dataset={data.dataset} />
-          <FilesSubscription datasetId={datasetId} />
         </DatasetQueryContext.Provider>
       </ErrorBoundary>
     </DatasetContext.Provider>

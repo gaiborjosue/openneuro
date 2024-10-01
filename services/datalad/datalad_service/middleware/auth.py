@@ -19,7 +19,7 @@ def parse_authorization_header(authorization):
 
 
 class AuthenticateMiddleware:
-    def process_request(self, req, resp):
+    async def process_request(self, req, resp):
         """Process the request before routing it for authentication.
 
         Args:
@@ -39,6 +39,11 @@ class AuthenticateMiddleware:
                 try:
                     req.context['user'] = jwt.decode(
                         token, key=os.environ['JWT_SECRET'], algorithms=["HS256"])
+                except (jwt.exceptions.InvalidSignatureError, jwt.exceptions.DecodeError):
+                    resp.status = falcon.HTTP_BAD_REQUEST
+                    resp.text = "Token malformed and could not be decoded"
+                    resp.complete = True
+                    return
                 except jwt.exceptions.ExpiredSignatureError:
                     resp.status = falcon.HTTP_UNAUTHORIZED
                     resp.text = "Token expired"

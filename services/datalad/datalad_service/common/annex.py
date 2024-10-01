@@ -10,6 +10,7 @@ import datalad_service.config
 
 SERVICE_EMAIL = 'git@openneuro.org'
 SERVICE_USER = 'Git Worker'
+S3_BUCKETS_WHITELIST = ['openneuro.org', 'openneuro-dev-datalad-public', 'openneuro-derivatives', 'bobsrepository']
 
 
 def init_annex(dataset_path):
@@ -86,14 +87,13 @@ def compute_rmet(key, legacy=False):
     return f'{keyHash[0:3]}/{keyHash[3:6]}/{key}.log.rmet'
 
 
-def parse_remote_line(remoteLine,
-                      preferredRemote='s3-PUBLIC'):
+def parse_remote_line(remoteLine):
     remoteConfig = dict(item.split('=')
                         for item in remoteLine[37:].split(' '))
-    if remoteConfig['name'] == preferredRemote:
+    if remoteConfig['type'] == 'S3' and remoteConfig['bucket'] in S3_BUCKETS_WHITELIST:
         remoteUuid = remoteLine[0:36]
         remoteUrl = remoteConfig['publicurl'] if 'publicurl' in remoteConfig else None
-        return {'uuid': remoteUuid, 'url': remoteUrl}
+        return {'uuid': remoteUuid, 'url': remoteUrl, 'name': remoteConfig['name']}
 
 
 def parse_rmet_line(remote, rmetLine):
@@ -158,12 +158,25 @@ def get_repo_urls(path, files):
                     rmetFiles[rmetPath] = f
                     rmetPaths.append(rmetPath)
     # Then read those objects with git cat-file --batch
-    gitObjects = rmetObjects['remote.log'] + '\n' + \
-        '\n'.join(rmetObjects[rmetPath] for rmetPath in rmetPaths)
+    gitObjects = ''
+    if 'trust.log' in rmetObjects:
+        gitObjects += rmetObjects['trust.log'] + '\n'
+    gitObjects += rmetObjects['remote.log'] + '\n'
+    gitObjects += '\n'.join(rmetObjects[rmetPath] for rmetPath in rmetPaths)
     catFileProcess = subprocess.run(['git', 'cat-file', '--batch=:::%(objectname)', '--buffer'],
                                     cwd=path, stdout=subprocess.PIPE, input=gitObjects, encoding='utf-8', bufsize=0, text=True)
     catFile = io.StringIO(catFileProcess.stdout)
-    # Read in remote.log first
+    # Read in trust.log and remote.log first
+    trustLog = {}
+    if 'trust.log' in rmetObjects:
+        trustLogMetadata = catFile.readline().rstrip()
+        while True:
+            line = catFile.readline().rstrip()
+            if line == '':
+                break
+            else:
+                uuid, trust, timestamp = line.split(' ')
+                trustLog[uuid] = trust
     remoteLogMetadata = catFile.readline().rstrip()
     remote = None
     while True:
@@ -171,9 +184,12 @@ def get_repo_urls(path, files):
         if line == '':
             break
         else:
-            matched_remote = parse_remote_line(line)
-            if matched_remote:
-                remote = matched_remote
+            matchedRemote = parse_remote_line(line)
+            # X remotes are dead
+            if matchedRemote and matchedRemote['uuid'] in trustLog and trustLog[matchedRemote['uuid']] == "X":
+                continue
+            if matchedRemote:
+                remote = matchedRemote
     # Check if we found a useful external remote
     if remote:
         # Read the rest of the files.

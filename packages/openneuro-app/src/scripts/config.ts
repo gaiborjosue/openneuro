@@ -13,21 +13,22 @@ export interface OpenNeuroConfig {
     }
     orcid?: {
       clientID: string
-      URI: string
-      redirectURI: string
+      ORCID_API_ENDPOINT: string
     }
     globus?: {
       clientID: string
     }
   }
   analytics?: { trackingIds: string }
-  sentry?: { environment: string }
+  sentry?: {
+    environment: string
+    dsn: string
+  }
   support?: {
     url: string
   }
   github?: string
   publicBucket?: string
-  ELASTIC_APM_SERVER_URL?: string
 }
 
 export const config: OpenNeuroConfig = {
@@ -45,8 +46,7 @@ export const config: OpenNeuroConfig = {
     },
     orcid: {
       clientID: globalThis.OpenNeuroConfig.ORCID_CLIENT_ID,
-      URI: globalThis.OpenNeuroConfig.ORCID_URI,
-      redirectURI: globalThis.OpenNeuroConfig.ORCID_REDIRECT_URI,
+      ORCID_API_ENDPOINT: globalThis.OpenNeuroConfig.ORCID_API_ENDPOINT,
     },
   },
   analytics: {
@@ -56,11 +56,13 @@ export const config: OpenNeuroConfig = {
       },
     ),
   },
-  sentry: { environment: globalThis.OpenNeuroConfig.ENVIRONMENT },
+  sentry: {
+    environment: globalThis.OpenNeuroConfig.ENVIRONMENT,
+    dsn: globalThis.OpenNeuroConfig.SENTRY_DSN,
+  },
   support: { url: globalThis.OpenNeuroConfig.SUPPORT_URL },
   github: globalThis.OpenNeuroConfig.DATALAD_GITHUB_ORG,
   publicBucket: globalThis.OpenNeuroConfig.AWS_S3_PUBLIC_BUCKET,
-  ELASTIC_APM_SERVER_URL: globalThis.OpenNeuroConfig.ELASTIC_APM_SERVER_URL,
 }
 
 export const getConfig = (): OpenNeuroConfig => config

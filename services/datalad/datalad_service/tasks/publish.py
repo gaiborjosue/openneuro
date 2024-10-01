@@ -1,11 +1,11 @@
+import asyncio
 import logging
 import os.path
 import re
+from concurrent.futures import ProcessPoolExecutor
 
-import elasticapm
 import pygit2
 import boto3
-import gevent
 from github import Github
 
 import datalad_service.common.s3
@@ -23,6 +23,9 @@ from datalad_service.common.github import github_export
 from datalad_service.common.s3 import s3_export, get_s3_remote, get_s3_bucket, update_s3_sibling
 
 logger = logging.getLogger('datalad_service.' + __name__)
+
+
+delete_executor = ProcessPoolExecutor(4)
 
 
 def github_sibling(dataset_path, dataset_id):
@@ -54,14 +57,12 @@ def create_remotes_and_export(dataset_path, cookies=None):
     export_dataset(dataset_path, cookies)
 
 
-@elasticapm.capture_span()
 def create_remotes(dataset_path):
     dataset = os.path.basename(dataset_path)
     s3_sibling(dataset_path)
     github_sibling(dataset_path, dataset)
 
 
-@elasticapm.capture_span()
 def export_dataset(dataset_path, cookies=None, s3_export=s3_export, github_export=github_export, update_s3_sibling=update_s3_sibling, github_enabled=DATALAD_GITHUB_EXPORTS_ENABLED):
     """
     Export dataset to S3 and GitHub.
@@ -113,8 +114,13 @@ def check_remote_has_version(dataset_path, remote, tag):
     return remote_id_A == remote_id_B and tree_id_A == tree_id_B
 
 
-@elasticapm.capture_span()
 def delete_s3_sibling(dataset_id):
+    """Run S3 sibling deletion in another process to avoid blocking any callers"""
+    delete_executor.submit(delete_s3_sibling_executor, dataset_id)
+
+
+def delete_s3_sibling_executor(dataset_id):
+    """Delete all versions of a dataset from S3."""
     try:
         client = boto3.client(
             's3',
@@ -141,29 +147,23 @@ def delete_s3_sibling(dataset_id):
             f'Attempt to delete dataset {dataset_id} from {get_s3_remote()} has failed. ({e})')
 
 
-@elasticapm.capture_span()
-def delete_github_sibling(dataset_id):
+async def delete_github_sibling(dataset_id):
     ses = Github(DATALAD_GITHUB_LOGIN, DATALAD_GITHUB_PASS)
     org = ses.get_organization(DATALAD_GITHUB_ORG)
     repos = org.get_repos()
     try:
         r = next(r for r in repos if r.name == dataset_id)
         r.delete()
+        # Yield between deletes
+        await asyncio.sleep(0)
     except StopIteration as e:
         raise Exception(
             f'Attempt to delete dataset {dataset_id} from GitHub has failed, because the dataset does not exist. ({e})')
 
 
-def delete_siblings(dataset_id):
-    try:
-        delete_s3_sibling(dataset_id)
-    except:
-        pass
-
-    try:
-        delete_github_sibling(dataset_id)
-    except:
-        pass
+async def delete_siblings(dataset_id):
+    delete_s3_sibling(dataset_id)
+    await delete_github_sibling(dataset_id)
 
 
 def monitor_remote_configs(dataset_path):
