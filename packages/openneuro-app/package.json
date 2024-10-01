@@ -4,6 +4,7 @@
   "description": "React JS web frontend for the OpenNeuro platform.",
   "license": "MIT",
   "main": "public/client.js",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "git@github.com:OpenNeuroOrg/openneuro.git"
